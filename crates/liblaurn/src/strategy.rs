@@ -37,10 +37,7 @@ impl Strategy {
 
 impl Default for Strategy {
     fn default() -> Self {
-        Strategy {
-            ro_paths: vec![],
-            rw_paths: vec![],
-        }
+        Strategy::new(vec![], vec![])
     }
 }
 
