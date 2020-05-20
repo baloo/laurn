@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "crates/liblaurn",
+]
+
+[package]
+name = "laurn"
+version = "0.1.0"
+authors = ["Arthur Gautier <baloo@superbaloo.net>"]
+edition = "2018"
+
+[dependencies]
+
+liblaurn = { path = "./crates/liblaurn" }
+clap = "2.33.0"
+
+[patch.crates-io]
+nix = { git = 'https://github.com/nix-rust/nix.git' }
