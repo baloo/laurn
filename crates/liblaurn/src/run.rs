@@ -4,10 +4,9 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Component, Path, PathBuf};
 
 use nix::errno::Errno;
-use nix::fcntl::{open, OFlag};
 use nix::mount::{mount, MsFlags};
 use nix::sched::{unshare, CloneFlags};
-use nix::sys::stat::{self, stat, Mode, SFlag};
+use nix::sys::stat::{self, mknod, stat, Mode, SFlag};
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{self, Pid};
 use nix::Error as SysError;
@@ -338,16 +337,13 @@ fn mount_target(
             };
         }
         SFlag::S_IFREG | SFlag::S_IFCHR => {
-            let fd = open(
-                target_path,
-                OFlag::O_CREAT | OFlag::O_CLOEXEC | OFlag::O_EXCL | OFlag::O_WRONLY,
-                fmode,
-            );
-
-            match fd {
-                Ok(fd) => {
-                    unistd::close(fd).map_err(RunError::Mount)?;
-                }
+            // mknod(2) can be used to create (empty) files, no need to open/close
+            // in which case, dev is to be ignored (hence 0)
+            match mknod(target_path, SFlag::S_IFREG, fmode, 0) {
+                Ok(_) => {}
+                // If target path already exist, then fine
+                // if it's a directly we won't be able to mount a file atop of it
+                // and it will fail on the mount below
                 Err(e) if e == SysError::Sys(Errno::EEXIST) => {}
                 Err(e) => return Err(RunError::Mount(e)),
             };
