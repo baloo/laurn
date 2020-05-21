@@ -144,28 +144,36 @@ fn run_child(container: Container, working_dir: &Path, config: Config) -> Result
     }
 
     // Mount things required to run processes
-    let proc_dir = working_dir.join("proc");
-    unistd::mkdir(&proc_dir, mode).map_err(RunError::Mount)?;
-
-    let dev_dir = working_dir.join("dev");
-    unistd::mkdir(&dev_dir, mode).map_err(RunError::Mount)?;
-
-    let dev_dir = working_dir.join("tmp");
-    unistd::mkdir(&dev_dir, mode).map_err(RunError::Mount)?;
+    let filesystems = vec![
+        working_dir.join("proc"),
+        working_dir.join("sys"),
+        working_dir.join("dev"),
+        working_dir.join("dev/pts"),
+        working_dir.join("dev/shm"),
+    ];
+    for fs in filesystems {
+        unistd::mkdir(&fs, mode).map_err(RunError::Mount)?;
+    }
 
     let devices = vec![
         Dev("/dev/null"),
-        Dev("/dev/console"),
+        Dev("/dev/zero"),
+        Dev("/dev/full"),
         Dev("/dev/random"),
         Dev("/dev/urandom"),
         Dev("/dev/tty"),
-        Dev("/dev/zero"),
+        Dev("/dev/console"),
     ];
     for dev in devices.iter() {
         // /dev items needs to be bind-mounted from host because we run in user-namespace and we
         // can't mknod.
         dev.mount(working_dir, project_dir, mode, fmode, MountMode::RW)?;
     }
+
+    // Only root can mount sysfs, we need to bindmount that
+    let sysfs = Dev("/sys");
+    // TODO: we get EPERM when trying to remount readonly, maybe worth figuring out why
+    sysfs.mount(working_dir, project_dir, mode, fmode, MountMode::RW)?;
 
     // And then just chroot and run from there
     unistd::chroot(working_dir).map_err(RunError::Chroot)?;
@@ -174,6 +182,43 @@ fn run_child(container: Container, working_dir: &Path, config: Config) -> Result
     let mount_flags = MsFlags::MS_NOSUID | MsFlags::MS_NODEV | MsFlags::MS_NOEXEC;
     let proc_dir = Path::new("/proc");
     mount(Some("proc"), proc_dir, Some("proc"), mount_flags, data).map_err(RunError::Mount)?;
+
+    let mount_flags = MsFlags::MS_NOSUID | MsFlags::MS_NODEV | MsFlags::MS_NOEXEC;
+    let devpts_dir = Path::new("/dev/pts");
+    let devpts_data = Some("mode=620,ptmxmode=666");
+    mount(
+        Some("devpts"),
+        devpts_dir,
+        Some("devpts"),
+        mount_flags,
+        devpts_data,
+    )
+    .map_err(RunError::Mount)?;
+
+    // `/dev/ptmx`. A bind-mount or symlink of the container's /dev/pts/ptmx.
+    mknod("/dev/ptmx", SFlag::S_IFREG, fmode, 0).map_err(RunError::Mount)?;
+    let mount_flags = MsFlags::MS_BIND | MsFlags::MS_PRIVATE | MsFlags::MS_REC;
+    let empty_fs: Option<&str> = None;
+    mount(
+        Some("/dev/pts/ptmx"),
+        "/dev/ptmx",
+        empty_fs,
+        mount_flags,
+        data,
+    )
+    .map_err(RunError::Mount)?;
+
+    let mount_flags = MsFlags::MS_NOSUID | MsFlags::MS_NODEV | MsFlags::MS_NOEXEC;
+    let devshm_dir = Path::new("/dev/shm");
+    let devshm_data = Some("size=65536k");
+    mount(
+        Some("shm"),
+        devshm_dir,
+        Some("tmpfs"),
+        mount_flags,
+        devshm_data,
+    )
+    .map_err(RunError::Mount)?;
 
     let command: &OsStr = container.output.output.as_path().as_ref();
     let command = command.as_bytes();
