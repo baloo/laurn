@@ -95,3 +95,11 @@ udev on /dev/tty type devtmpfs (rw,nosuid,relatime,size=16380964k,nr_inodes=4095
 udev on /dev/zero type devtmpfs (rw,nosuid,relatime,size=16380964k,nr_inodes=4095241,mode=755)
 proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)
 ```
+
+
+## Shell hook
+
+```
+eval "$(cargo run hook bash)
+```
+

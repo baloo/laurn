@@ -11,7 +11,35 @@ enum Error {
     Run(run::RunError),
     Build(BuildError),
     CurrentDir(IoError),
+    CurrentExe(IoError),
     Config(ConfigError),
+}
+
+// A dummy hook in bash
+fn hook_bash() -> Result<String, Error> {
+    let exe = std::env::current_exe().map_err(Error::CurrentExe)?;
+    Ok(format!(
+        r#"
+LAURN_PREVIOUS_PATH=""
+_laurn_hook() {{
+    local previous_exit_status=$?;
+    if [ "$(pwd)" != "$LAURN_PREVIOUS_PATH" ]; then
+        LAURN_PREVIOUS_PATH="$(pwd)";
+        if [ -e .laurnrc ]; then
+           {laurn} shell;
+        else
+            return $previous_exit_status;
+        fi
+    else
+        return $previous_exit_status;
+    fi
+}}
+if ! [[ "${{PROMPT_COMMAND:-}}" =~ _laurn_hook ]]; then
+  PROMPT_COMMAND="_laurn_hook${{PROMPT_COMMAND:+;$PROMPT_COMMAND}}"
+fi
+"#,
+        laurn = exe.as_path().display()
+    ))
 }
 
 fn main() -> Result<(), Error> {
@@ -30,6 +58,11 @@ fn main() -> Result<(), Error> {
             ),
         )
         .subcommand(SubCommand::with_name("shell").about("start a shell in the current directory"))
+        .subcommand(
+            SubCommand::with_name("hook")
+                .about("hook into a shell")
+                .subcommand(SubCommand::with_name("bash").about("hook into bash")),
+        )
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("run") {
@@ -52,7 +85,13 @@ fn main() -> Result<(), Error> {
 
         let code = run::run(container, laurn_config).map_err(Error::Run)?;
         std::process::exit(code)
-    } else {
-        std::process::exit(1)
+    } else if let Some(matches) = matches.subcommand_matches("hook") {
+        if let Some(_) = matches.subcommand_matches("bash") {
+            if let Ok(hook) = hook_bash() {
+                println!("{}", hook);
+                std::process::exit(0);
+            }
+        }
     }
+    std::process::exit(1)
 }
