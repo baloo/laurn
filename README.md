@@ -103,3 +103,10 @@ proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)
 eval "$(cargo run hook bash)
 ```
 
+
+# Limitations
+
+laurn requires:
+
+  - a recent linux kernel (with user namespaces)
+  - nix
