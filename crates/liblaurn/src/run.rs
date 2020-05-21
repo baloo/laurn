@@ -97,7 +97,6 @@ fn wait_child(child: Pid) -> Result<i32, RunError> {
     loop {
         match waitpid(child, None).map_err(RunError::Wait)? {
             WaitStatus::Exited(_pid, res) => {
-                println!("child exited: {}", res);
                 return Ok(res);
             }
             e => unimplemented!("unimplemented status check: {:?}", e),
