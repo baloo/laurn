@@ -123,15 +123,19 @@ fn run_child(container: Container, working_dir: &Path, config: Config) -> Result
     let mut dependencies = container.references().map_err(RunError::Dependencies)?;
     dependencies.push(PathBuf::from("/etc/resolv.conf")); // Meh, hackish
 
+    // First mount the nix dependencies (and the main shell "entrypoint"), read-only
     for dep in dependencies.iter() {
         let dep = NixPath(dep.as_path());
 
         dep.mount(working_dir, project_dir, mode, fmode, MountMode::RO)?;
     }
 
+    // Then mount the project itself
     let project = ProjectPath(project_dir);
     project.mount(working_dir, project_dir, mode, fmode, MountMode::RW)?;
 
+    // Depending on the configuration, we want to expose things from $HOME or project other things
+    // (the laurn config itself, git, ...)
     let protected_paths = Strategy::from(config.laurn.mode);
     for ro_path in protected_paths.ro_paths.iter() {
         ro_path.mount(working_dir, project_dir, mode, fmode, MountMode::RO)?;
@@ -140,6 +144,7 @@ fn run_child(container: Container, working_dir: &Path, config: Config) -> Result
         rw_path.mount(working_dir, project_dir, mode, fmode, MountMode::RW)?;
     }
 
+    // Mount things required to run processes
     let proc_dir = working_dir.join("proc");
     unistd::mkdir(&proc_dir, mode).map_err(RunError::Mount)?;
 
@@ -158,9 +163,12 @@ fn run_child(container: Container, working_dir: &Path, config: Config) -> Result
         Dev("/dev/zero"),
     ];
     for dev in devices.iter() {
+        // /dev items needs to be bind-mounted from host because we run in user-namespace and we
+        // can't mknod.
         dev.mount(working_dir, project_dir, mode, fmode, MountMode::RW)?;
     }
 
+    // And then just chroot and run from there
     unistd::chroot(working_dir).map_err(RunError::Chroot)?;
     unistd::chdir(project_dir).map_err(RunError::Chroot)?;
 

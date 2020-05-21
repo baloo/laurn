@@ -14,6 +14,10 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+/// Create a nix derivation that will add the dependencies from the `laurn.nix` derivation as well
+/// as bash and bunch of other tools directly from nixpkgs.
+///
+/// This is to be consumed by nix-instanciate
 fn source_input(laurn_shell_nix: &Path) -> String {
     format!(
         r#"
