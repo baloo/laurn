@@ -9,6 +9,12 @@ version = "0.1.0"
 authors = ["Arthur Gautier <baloo@superbaloo.net>"]
 edition = "2018"
 
+default-run = "laurn"
+
+[[bin]]
+name = "laurn"
+test = true
+
 [dependencies]
 
 liblaurn = { path = "./crates/liblaurn" }

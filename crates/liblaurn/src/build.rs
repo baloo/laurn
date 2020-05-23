@@ -36,8 +36,13 @@ in pkgs.stdenv.mkDerivation rec {{
 #!/bin/bash
 
 export PATH=@binpath@
+set -x
 
-exec @bashShell@/bin/bash -i # -c 'cargo build'
+if [ $# -gt 0 ]; then
+    exec @bashShell@/bin/bash -c "$*"
+else
+    exec @bashShell@/bin/bash -i
+fi
 '';
 
   binpath = pkgs.lib.makeBinPath (origShell.buildInputs ++ [

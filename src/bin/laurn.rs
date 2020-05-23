@@ -48,14 +48,24 @@ fn main() -> Result<(), Error> {
         .author("Arthur Gautier <laurn@superbaloo.net>")
         .about("nix-based containers")
         .subcommand(
-            SubCommand::with_name("run").about("run a container").arg(
-                Arg::with_name("path")
-                    .short("p")
-                    .value_name("FILE")
-                    .takes_value(true)
-                    .required(true)
-                    .help("path to the root nix definition"),
-            ),
+            SubCommand::with_name("run")
+                .about("run a container")
+                .arg(
+                    Arg::with_name("path")
+                        .short("p")
+                        .value_name("FILE")
+                        .takes_value(true)
+                        .required(true)
+                        .help("path to the root nix definition"),
+                )
+                .arg(
+                    Arg::with_name("command")
+                        .value_name("COMMAND")
+                        .takes_value(true)
+                        .required(false)
+                        .multiple(true)
+                        .help("optional command to run in container"),
+                ),
         )
         .subcommand(SubCommand::with_name("shell").about("start a shell in the current directory"))
         .subcommand(
@@ -70,9 +80,11 @@ fn main() -> Result<(), Error> {
         let source = Path::new(source);
         let laurn_config = Config::default();
 
+        let mut command = matches.values_of("command");
+
         let container = Container::build(source).map_err(Error::Build)?;
 
-        let code = run::run(container, laurn_config).map_err(Error::Run)?;
+        let code = run::run(container, laurn_config, command.as_mut()).map_err(Error::Run)?;
         std::process::exit(code)
     } else if let Some(_matches) = matches.subcommand_matches("shell") {
         let project_dir = current_dir().map_err(Error::CurrentDir)?;
@@ -83,7 +95,9 @@ fn main() -> Result<(), Error> {
         let source = project_dir.join("laurn.nix");
         let container = Container::build(source.as_path()).map_err(Error::Build)?;
 
-        let code = run::run(container, laurn_config).map_err(Error::Run)?;
+        //let code = run::run::<clap::Values>(container, laurn_config, None).map_err(Error::Run)?;
+        let code = run::run::<std::iter::Empty<&str>>(container, laurn_config, None)
+            .map_err(Error::Run)?;
         std::process::exit(code)
     } else if let Some(matches) = matches.subcommand_matches("hook") {
         if let Some(_) = matches.subcommand_matches("bash") {

@@ -1,4 +1,4 @@
-use std::ffi::{CString, OsStr};
+use std::ffi::{CStr, CString, NulError, OsStr};
 use std::io::Error as IOError;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Component, Path, PathBuf};
@@ -36,9 +36,16 @@ pub enum RunError {
 
     Mkdir,
     GuessHomeDir,
+
+    /// Command includes null bytes in the middle
+    Nul(NulError),
 }
 
-pub fn run(container: Container, config: Config) -> Result<i32, RunError> {
+pub fn run<'e, I: Iterator<Item = &'e str>>(
+    container: Container,
+    config: Config,
+    command: Option<&mut I>,
+) -> Result<i32, RunError> {
     // Here is how it's gonna go:
     //   - First process is going to do the workdir
     //   - Second process is going to unshare
@@ -64,7 +71,7 @@ pub fn run(container: Container, config: Config) -> Result<i32, RunError> {
             res
         }
         Ok(unistd::ForkResult::Child) => {
-            let res = run_unshare(container, working_dir_path, config);
+            let res = run_unshare(container, working_dir_path, config, command);
 
             // This is not our responsability to destroy working_directory
             std::mem::forget(working_dir);
@@ -78,14 +85,19 @@ pub fn run(container: Container, config: Config) -> Result<i32, RunError> {
     }
 }
 
-fn run_unshare(container: Container, working_dir: &Path, config: Config) -> Result<i32, RunError> {
+fn run_unshare<'e, I: Iterator<Item = &'e str>>(
+    container: Container,
+    working_dir: &Path,
+    config: Config,
+    command: Option<&mut I>,
+) -> Result<i32, RunError> {
     let flags = CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWPID;
     unshare(flags).map_err(RunError::System)?;
 
     // Second fork
     match unistd::fork() {
         Ok(unistd::ForkResult::Parent { child, .. }) => wait_child(child),
-        Ok(unistd::ForkResult::Child) => run_child(container, working_dir, config),
+        Ok(unistd::ForkResult::Child) => run_child(container, working_dir, config, command),
         Err(e) => {
             eprintln!("Fork failed");
             Err(RunError::Fork(e))
@@ -104,7 +116,12 @@ fn wait_child(child: Pid) -> Result<i32, RunError> {
     }
 }
 
-fn run_child(container: Container, working_dir: &Path, config: Config) -> Result<i32, RunError> {
+fn run_child<'e, I: Iterator<Item = &'e str>>(
+    container: Container,
+    working_dir: &Path,
+    config: Config,
+    command: Option<&mut I>,
+) -> Result<i32, RunError> {
     let project_dir = container.laurn_expr.parent().ok_or(RunError::Mkdir)?;
 
     let data: Option<&str> = None;
@@ -219,11 +236,29 @@ fn run_child(container: Container, working_dir: &Path, config: Config) -> Result
     )
     .map_err(RunError::Mount)?;
 
-    let command: &OsStr = container.output.output.as_path().as_ref();
-    let command = command.as_bytes();
+    // Adapt the nix-shell wrapper
+    let shell_wrapper: &OsStr = container.output.output.as_path().as_ref();
+    let shell_wrapper = shell_wrapper.as_bytes();
+
+    // Adapt the optional command to run
+    let command: Vec<CString> = match command {
+        Some(iter) => {
+            let mut out = Vec::new(); // need with_capacity / size_hint?
+            out.push(CString::new("laurn-shell").map_err(RunError::Nul)?);
+            for el in iter {
+                out.push(CString::new(el).map_err(RunError::Nul)?);
+            }
+            out
+        }
+        None => vec![], // Technically this is wrong, we should prefix with the shell wrapper here too, but bash is forgoving (and I'm lazy)
+    };
+    let command: Vec<&CStr> = command.iter().map(|s| s.as_c_str()).collect();
+
     unistd::execv(
-        CString::new(command).expect("Cstring::failed").as_c_str(),
-        &[],
+        CString::new(shell_wrapper)
+            .map_err(RunError::Nul)?
+            .as_c_str(),
+        &command,
     )
     .map_err(RunError::Exec)?;
 
@@ -284,6 +319,10 @@ impl Mount for ExposedPath {
                 ))
             }
         }?;
+
+        if !source_path.exists() {
+            return Ok(());
+        }
 
         if let Some(p) = target_path.parent() {
             mkdirp(p, mode)?;
