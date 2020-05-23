@@ -91,7 +91,12 @@ fn run_unshare<'e, I: Iterator<Item = &'e str>>(
     config: Config,
     command: Option<&mut I>,
 ) -> Result<i32, RunError> {
-    let mut flags = CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWPID;
+    let mut flags = CloneFlags::CLONE_NEWNS
+        | CloneFlags::CLONE_NEWUSER
+        | CloneFlags::CLONE_NEWPID
+        | CloneFlags::CLONE_NEWIPC;
+    // TODO(baloo): do we need a NEWUTS here?
+
     if config.laurn.network == NetworkConfig::Isolated {
         flags = flags | CloneFlags::CLONE_NEWNET;
     }
