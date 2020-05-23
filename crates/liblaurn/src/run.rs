@@ -15,7 +15,7 @@ use tempfile::Builder as TempBuilder;
 
 use home::home_dir;
 
-use crate::config::Config;
+use crate::config::{Config, NetworkConfig};
 use crate::container::{Container, Error as ContainerError};
 use crate::strategy::{ExposedPath, Strategy};
 use crate::utils::PathMerge;
@@ -91,7 +91,10 @@ fn run_unshare<'e, I: Iterator<Item = &'e str>>(
     config: Config,
     command: Option<&mut I>,
 ) -> Result<i32, RunError> {
-    let flags = CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWPID;
+    let mut flags = CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWUSER | CloneFlags::CLONE_NEWPID;
+    if config.laurn.network == NetworkConfig::Isolated {
+        flags = flags | CloneFlags::CLONE_NEWNET;
+    }
     unshare(flags).map_err(RunError::System)?;
 
     // Second fork

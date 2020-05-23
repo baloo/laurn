@@ -28,11 +28,29 @@ impl Default for Config {
 #[derive(Deserialize, Debug)]
 pub struct LaurnConfig {
     pub mode: Mode,
+    #[serde(default)]
+    pub network: NetworkConfig,
 }
 
 impl Default for LaurnConfig {
     fn default() -> Self {
-        LaurnConfig { mode: Mode::None }
+        LaurnConfig {
+            mode: Mode::None,
+            network: NetworkConfig::Isolated,
+        }
+    }
+}
+
+#[serde(rename_all = "lowercase")]
+#[derive(Deserialize, PartialEq, Eq, Debug, Copy, Clone)]
+pub enum NetworkConfig {
+    Isolated,
+    Exposed,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self::Isolated
     }
 }
 
