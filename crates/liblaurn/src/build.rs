@@ -36,7 +36,6 @@ in pkgs.stdenv.mkDerivation rec {{
 #!/bin/bash
 
 export PATH=@binpath@
-set -x
 
 if [ $# -gt 0 ]; then
     exec @bashShell@/bin/bash -c "$*"
