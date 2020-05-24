@@ -3,8 +3,9 @@ use std::io::Error as IoError;
 use std::path::Path;
 
 use clap::{App, Arg, SubCommand};
-use liblaurn::config::{load_config, Config, ConfigError};
-use liblaurn::{run, BuildError, Container};
+
+use laurn::config::{load_config, Config, ConfigError};
+use laurn::{run, BuildError, Container};
 
 #[derive(Debug)]
 enum Error {

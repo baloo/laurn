@@ -86,7 +86,13 @@ name = "laurn"
 version = "0.1.0"
 dependencies = [
  "clap 2.33.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "liblaurn 0.1.0",
+ "home 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nix 0.17.0 (git+https://github.com/nix-rust/nix.git)",
+ "nom 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.110 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.110 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toml 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -110,19 +116,6 @@ source = "git+https://github.com/rust-lang/libc/#174920c79f81968c0e7639406463cd8
 name = "libc"
 version = "0.2.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "liblaurn"
-version = "0.1.0"
-dependencies = [
- "home 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "nix 0.17.0 (git+https://github.com/nix-rust/nix.git)",
- "nom 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.110 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.110 (registry+https://github.com/rust-lang/crates.io-index)",
- "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "toml 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "memchr"
