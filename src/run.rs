@@ -98,7 +98,7 @@ fn run_unshare<'e, I: Iterator<Item = &'e str>>(
     // TODO(baloo): do we need a NEWUTS here?
 
     if config.laurn.network == NetworkConfig::Isolated {
-        flags = flags | CloneFlags::CLONE_NEWNET;
+        flags |= CloneFlags::CLONE_NEWNET;
     }
     unshare(flags).map_err(RunError::System)?;
 

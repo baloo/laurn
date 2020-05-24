@@ -101,7 +101,7 @@ fn main() -> Result<(), Error> {
             .map_err(Error::Run)?;
         std::process::exit(code)
     } else if let Some(matches) = matches.subcommand_matches("hook") {
-        if let Some(_) = matches.subcommand_matches("bash") {
+        if matches.subcommand_matches("bash").is_some() {
             if let Ok(hook) = hook_bash() {
                 println!("{}", hook);
                 std::process::exit(0);
