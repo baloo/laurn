@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: nightly
+        components: rustfmt
+    - name: Check rustfmt
+      run: cargo +nightly fmt -- --check
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: nightly
+          components: clippy
+      - name: Check clippy
+        run: cargo +nightly clippy --all-features -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: cachix/install-nix-action@v8
+      - name: Run tests
+        run: nix-build -E 'import ./default.nix { doCheck = true; release = false; }'
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: cachix/install-nix-action@v8
+      - name: Run build
+        run: nix-build
+
