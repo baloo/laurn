@@ -143,8 +143,7 @@ fn run_child<'e, I: Iterator<Item = &'e str>>(
     let fmode =
         stat::Mode::S_IRUSR | stat::Mode::S_IWUSR | stat::Mode::S_IRGRP | stat::Mode::S_IROTH;
 
-    let mut dependencies = container.references().map_err(RunError::Dependencies)?;
-    dependencies.push(PathBuf::from("/etc/resolv.conf")); // Meh, hackish
+    let dependencies = container.references().map_err(RunError::Dependencies)?;
 
     // First mount the nix dependencies (and the main shell "entrypoint"), read-only
     for dep in dependencies.iter() {
@@ -152,6 +151,12 @@ fn run_child<'e, I: Iterator<Item = &'e str>>(
 
         dep.mount(working_dir, project_dir, mode, fmode, MountMode::RO)?;
     }
+
+    let resolv = PathBuf::from("/etc/resolv.conf");
+    let dep = NixPath(resolv.as_path()); // Meh, hackish
+                                         // TODO(baloo): on github, resolv.conf can't be be remounted, mount it RW for now as it's out
+                                         // of reach anyway
+    dep.mount(working_dir, project_dir, mode, fmode, MountMode::RW)?;
 
     // Then mount the project itself
     let project = ProjectPath(project_dir);
