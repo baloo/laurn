@@ -1,3 +1,9 @@
+[workspace]
+
+members = [
+    "crates/dot",
+]
+
 [package]
 name = "laurn"
 version = "0.1.0"
@@ -12,10 +18,8 @@ test = true
 
 [dependencies]
 clap = "2.33.0"
-# Need a nix version with https://github.com/nix-rust/nix/pull/1242 (unavailable at time of writing)
-nix = { git = 'https://github.com/nix-rust/nix.git' }
-# nix = "0.17.0"
-#
+nix = "0.18.0"
+
 tempfile = "3.1.0"
 nom = "5.1.1"
 home = "0.5.3"
@@ -23,7 +27,3 @@ toml = "0.5.6"
 
 serde_derive = "1.0.110"
 serde = "1.0.110"
-
-[patch.'git+https://github.com/rust-lang/libc.git']
-# Nix from git injects a git version of libc, which looks like it's messing up crate2nix
-libc = "0.2.70"
