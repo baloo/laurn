@@ -44,6 +44,13 @@ fi
 }
 
 fn main() -> Result<(), Error> {
+    let root_arg = Arg::with_name("root")
+        .long("--root")
+        .takes_value(false)
+        .multiple(false)
+        .required(false)
+        .help("should command be run as root");
+
     let matches = App::new("laurn")
         .version("0.0.1")
         .author("Arthur Gautier <laurn@superbaloo.net>")
@@ -51,6 +58,7 @@ fn main() -> Result<(), Error> {
         .subcommand(
             SubCommand::with_name("run")
                 .about("run a container")
+                .arg(root_arg.clone())
                 .arg(
                     Arg::with_name("path")
                         .short("p")
@@ -68,7 +76,11 @@ fn main() -> Result<(), Error> {
                         .help("optional command to run in container"),
                 ),
         )
-        .subcommand(SubCommand::with_name("shell").about("start a shell in the current directory"))
+        .subcommand(
+            SubCommand::with_name("shell")
+                .about("start a shell in the current directory")
+                .arg(root_arg.clone()),
+        )
         .subcommand(
             SubCommand::with_name("hook")
                 .about("hook into a shell")
@@ -82,22 +94,25 @@ fn main() -> Result<(), Error> {
         let laurn_config = Config::default();
 
         let mut command = matches.values_of("command");
+        let run_as_root = matches.is_present("root");
 
         let container = Container::build(source).map_err(Error::Build)?;
 
-        let code = run::run(container, laurn_config, command.as_mut()).map_err(Error::Run)?;
+        let code =
+            run::run(container, laurn_config, command.as_mut(), run_as_root).map_err(Error::Run)?;
         std::process::exit(code)
-    } else if let Some(_matches) = matches.subcommand_matches("shell") {
+    } else if let Some(matches) = matches.subcommand_matches("shell") {
         let project_dir = current_dir().map_err(Error::CurrentDir)?;
         let laurn_config_file = project_dir.join(".laurnrc");
 
         let laurn_config = load_config(laurn_config_file.as_path()).map_err(Error::Config)?;
+        let run_as_root = matches.is_present("root");
 
         let source = project_dir.join("laurn.nix");
         let container = Container::build(source.as_path()).map_err(Error::Build)?;
 
         //let code = run::run::<clap::Values>(container, laurn_config, None).map_err(Error::Run)?;
-        let code = run::run::<std::iter::Empty<&str>>(container, laurn_config, None)
+        let code = run::run::<std::iter::Empty<&str>>(container, laurn_config, None, run_as_root)
             .map_err(Error::Run)?;
         std::process::exit(code)
     } else if let Some(matches) = matches.subcommand_matches("hook") {

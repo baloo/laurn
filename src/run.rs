@@ -1,4 +1,5 @@
 use std::ffi::{CStr, CString, NulError, OsStr};
+use std::fs;
 use std::io::Error as IOError;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Component, Path, PathBuf};
@@ -8,7 +9,7 @@ use nix::mount::{mount, MsFlags};
 use nix::sched::{unshare, CloneFlags};
 use nix::sys::stat::{self, mknod, stat, Mode, SFlag};
 use nix::sys::wait::{waitpid, WaitStatus};
-use nix::unistd::{self, Pid};
+use nix::unistd::{self, getgid, getuid, Gid, Pid, Uid};
 use nix::Error as SysError;
 
 use tempfile::Builder as TempBuilder;
@@ -33,6 +34,7 @@ pub enum RunError {
     Exec(SysError),
 
     Collect(IOError),
+    AsRoot(IOError),
 
     Mkdir,
     GuessHomeDir,
@@ -45,6 +47,7 @@ pub fn run<'e, I: Iterator<Item = &'e str>>(
     container: Container,
     config: Config,
     command: Option<&mut I>,
+    run_as_root: bool,
 ) -> Result<i32, RunError> {
     // Here is how it's gonna go:
     //   - First process is going to do the workdir
@@ -71,7 +74,7 @@ pub fn run<'e, I: Iterator<Item = &'e str>>(
             res
         }
         Ok(unistd::ForkResult::Child) => {
-            let res = run_unshare(container, working_dir_path, config, command);
+            let res = run_unshare(container, working_dir_path, config, command, run_as_root);
 
             // This is not our responsability to destroy working_directory
             std::mem::forget(working_dir);
@@ -85,12 +88,46 @@ pub fn run<'e, I: Iterator<Item = &'e str>>(
     }
 }
 
+type UidGid = (Uid, Gid);
+
+fn get_outside_id() -> UidGid {
+    let uid = getuid();
+    let gid = getgid();
+
+    (uid, gid)
+}
+
+fn fake_root(ug: UidGid) -> Result<(), RunError> {
+    let (uid, gid) = ug;
+
+    fs::write("/proc/self/setgroups", b"deny").map_err(RunError::AsRoot)?;
+    fs::write(
+        "/proc/self/uid_map",
+        format!("0 {} 1", uid.as_raw()).as_bytes(),
+    )
+    .map_err(RunError::AsRoot)?;
+    fs::write(
+        "/proc/self/gid_map",
+        format!("0 {} 1", gid.as_raw()).as_bytes(),
+    )
+    .map_err(RunError::AsRoot)?;
+
+    Ok(())
+}
+
 fn run_unshare<'e, I: Iterator<Item = &'e str>>(
     container: Container,
     working_dir: &Path,
     config: Config,
     command: Option<&mut I>,
+    run_as_root: bool,
 ) -> Result<i32, RunError> {
+    let ug = if run_as_root {
+        Some(get_outside_id())
+    } else {
+        None
+    };
+
     let mut flags = CloneFlags::CLONE_NEWNS
         | CloneFlags::CLONE_NEWUSER
         | CloneFlags::CLONE_NEWPID
@@ -101,6 +138,11 @@ fn run_unshare<'e, I: Iterator<Item = &'e str>>(
         flags |= CloneFlags::CLONE_NEWNET;
     }
     unshare(flags).map_err(RunError::System)?;
+
+    // Should we rewrite uids?
+    if let Some(ug) = ug {
+        fake_root(ug)?;
+    }
 
     // Second fork
     match unistd::fork() {
