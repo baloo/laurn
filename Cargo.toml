@@ -1,9 +1,3 @@
-[workspace]
-
-members = [
-    "crates/dot",
-]
-
 [package]
 name = "laurn"
 version = "0.1.0"
