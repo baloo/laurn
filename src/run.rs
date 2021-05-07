@@ -298,8 +298,7 @@ fn run_child<'e, I: Iterator<Item = &'e str>>(
     // Adapt the optional command to run
     let command: Vec<CString> = match command {
         Some(iter) => {
-            let mut out = Vec::new(); // need with_capacity / size_hint?
-            out.push(CString::new("laurn-shell").map_err(RunError::Nul)?);
+            let mut out = vec![CString::new("laurn-shell").map_err(RunError::Nul)?];
             for el in iter {
                 out.push(CString::new(el).map_err(RunError::Nul)?);
             }
