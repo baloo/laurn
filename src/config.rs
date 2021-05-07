@@ -41,8 +41,8 @@ impl Default for LaurnConfig {
     }
 }
 
-#[serde(rename_all = "lowercase")]
 #[derive(Deserialize, PartialEq, Eq, Debug, Copy, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum NetworkConfig {
     Isolated,
     Exposed,
@@ -54,8 +54,8 @@ impl Default for NetworkConfig {
     }
 }
 
-#[serde(rename_all = "lowercase")]
 #[derive(Deserialize, PartialEq, Eq, Debug, Copy, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum Mode {
     None,
     Rust,
