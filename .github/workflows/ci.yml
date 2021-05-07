@@ -36,6 +36,8 @@ jobs:
         with:
           rust-version: nightly
       - name: Run tests
+        env:
+          NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/refs/heads/master.tar.gz
         run: cargo test
 
   build:
